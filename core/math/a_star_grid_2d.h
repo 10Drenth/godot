@@ -145,7 +145,7 @@ private: // Internal routines.
 	}
 
 	void _get_nbors(Point *p_point, LocalVector<Point *> &r_nbors);
-	Point *_jump(Point *p_from, Point *p_to);
+	Point *_jump(int32_t p_from_x, int32_t p_from_y, int32_t p_to_x, int32_t p_to_y);
 	bool _solve(Point *p_begin_point, Point *p_end_point);
 
 protected:
