@@ -123,13 +123,13 @@ AStarGrid2D::CellShape AStarGrid2D::get_cell_shape() const {
 
 void AStarGrid2D::update() {
 	points.clear();
+	points.reserve(region.size.x * region.size.y);
 
 	const int32_t end_x = region.get_end().x;
 	const int32_t end_y = region.get_end().y;
 	const Vector2 half_cell_size = cell_size / 2;
 
 	for (int32_t y = region.position.y; y < end_y; y++) {
-		LocalVector<Point> line;
 		for (int32_t x = region.position.x; x < end_x; x++) {
 			Vector2 v = offset;
 			switch (cell_shape) {
@@ -145,9 +145,8 @@ void AStarGrid2D::update() {
 				default:
 					break;
 			}
-			line.push_back(Point(Vector2i(x, y), v));
+			points.push_back(Point(Vector2i(x, y), v));
 		}
-		points.push_back(line);
 	}
 
 	dirty = false;
@@ -268,7 +267,57 @@ AStarGrid2D::Point *AStarGrid2D::_jump(int32_t p_from_x, int32_t p_from_y, int32
 	int32_t dx = p_to_x - p_from_x;
 	int32_t dy = p_to_y - p_from_y;
 
-	{ // DIAGONAL_MODE_NEVER
+	if (diagonal_mode == DIAGONAL_MODE_ALWAYS || diagonal_mode == DIAGONAL_MODE_AT_LEAST_ONE_WALKABLE) {
+		if (dx != 0 && dy != 0) {
+			if ((_is_walkable(p_to_x - dx, p_to_y + dy) && !_is_walkable(p_to_x - dx, p_to_y)) || (_is_walkable(p_to_x + dx, p_to_y - dy) && !_is_walkable(p_to_x, p_to_y - dy))) {
+				return _get_point(p_to_x, p_to_y);
+			}
+			if (_jump(p_to_x, p_to_y, p_to_x + dx, p_to_y) != nullptr) {
+				return _get_point(p_to_x, p_to_y);
+			}
+			if (_jump(p_to_x, p_to_y, p_to_x, p_to_y + dy) != nullptr) {
+				return _get_point(p_to_x, p_to_y);
+			}
+		} else {
+			if (dx != 0) {
+				if ((_is_walkable(p_to_x + dx, p_to_y + 1) && !_is_walkable(p_to_x, p_to_y + 1)) || (_is_walkable(p_to_x + dx, p_to_y - 1) && !_is_walkable(p_to_x, p_to_y - 1))) {
+					return _get_point(p_to_x, p_to_y);
+				}
+			} else {
+				if ((_is_walkable(p_to_x + 1, p_to_y + dy) && !_is_walkable(p_to_x + 1, p_to_y)) || (_is_walkable(p_to_x - 1, p_to_y + dy) && !_is_walkable(p_to_x - 1, p_to_y))) {
+					return _get_point(p_to_x, p_to_y);
+				}
+			}
+		}
+		if (_is_walkable(p_to_x + dx, p_to_y + dy) && (diagonal_mode == DIAGONAL_MODE_ALWAYS || (_is_walkable(p_to_x + dx, p_to_y) || _is_walkable(p_to_x, p_to_y + dy)))) {
+			return _jump(p_to_x, p_to_y, p_to_x + dx, p_to_y + dy);
+		}
+	} else if (diagonal_mode == DIAGONAL_MODE_ONLY_IF_NO_OBSTACLES) {
+		if (dx != 0 && dy != 0) {
+			if ((_is_walkable(p_to_x + dx, p_to_y + dy) && !_is_walkable(p_to_x, p_to_y + dy)) || !_is_walkable(p_to_x + dx, p_to_y)) {
+				return _get_point(p_to_x, p_to_y);
+			}
+			if (_jump(p_to_x, p_to_y, p_to_x + dx, p_to_y) != nullptr) {
+				return _get_point(p_to_x, p_to_y);
+			}
+			if (_jump(p_to_x, p_to_y, p_to_x, p_to_y + dy) != nullptr) {
+				return _get_point(p_to_x, p_to_y);
+			}
+		} else {
+			if (dx != 0) {
+				if ((_is_walkable(p_to_x, p_to_y + 1) && !_is_walkable(p_to_x - dx, p_to_y + 1)) || (_is_walkable(p_to_x, p_to_y - 1) && !_is_walkable(p_to_x - dx, p_to_y - 1))) {
+					return _get_point(p_to_x, p_to_y);
+				}
+			} else {
+				if ((_is_walkable(p_to_x + 1, p_to_y) && !_is_walkable(p_to_x + 1, p_to_y - dy)) || (_is_walkable(p_to_x - 1, p_to_y) && !_is_walkable(p_to_x - 1, p_to_y - dy))) {
+					return _get_point(p_to_x, p_to_y);
+				}
+			}
+		}
+		if (_is_walkable(p_to_x + dx, p_to_y + dy) && _is_walkable(p_to_x + dx, p_to_y) && _is_walkable(p_to_x, p_to_y + dy)) {
+			return _jump(p_to_x, p_to_y, p_to_x + dx, p_to_y + dy);
+		}
+	} else { // DIAGONAL_MODE_NEVER
 		if (dx != 0) {
 			bool up_was_walkable = _is_walkable(p_from_x, p_from_y - 1);
 			bool down_was_walkable = _is_walkable(p_from_x, p_from_y + 1);
